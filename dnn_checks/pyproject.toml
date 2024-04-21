@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "dnn-checks"
+version = "0.1.0"
+description = ""
+authors = ["dorhar <doron.harnoy@tensorleap.ai>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = ">=3.8, <3.11"
+tensorflow-io-gcs-filesystem = "0.30.0"
+tensorflow = "2.11.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
