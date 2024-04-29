@@ -10,6 +10,9 @@ python = ">=3.8, <3.11"
 tensorflow-io-gcs-filesystem = "0.30.0"
 tensorflow = "2.11.0"
 
+[tool.poetry.scripts]
+check_tf_gpu='dnn_checks.tf_gpu_check:main'
+
 
 [build-system]
 requires = ["poetry-core"]
