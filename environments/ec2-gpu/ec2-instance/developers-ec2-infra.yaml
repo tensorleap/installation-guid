@@ -1,0 +1,202 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: VPC with public and private subnet with internet access for developers.
+
+Parameters:
+  DeveloperName:
+    Type: String
+    Description: "Name of the developer"
+    Default: "tensorleap"
+  AmiID:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Description: "The ID of the AMI."
+    Default: /aws/service/ecs/optimized-ami/amazon-linux-2/gpu/recommended/image_id
+  InstanceType:
+    Type: String
+    Description: "EC2 instance type to launch"
+    Default: g6.xlarge
+  CidrBlock:
+    Type: String
+    Description: "CIDR block for the VPC"
+    Default: 192.168.0.0/20
+
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref CidrBlock
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      InstanceTenancy: default
+      Tags:
+        - Key: Name
+          Value: !Ref AWS::StackName
+        - Key: map-migrated
+          Value: migK6H2OQ2BH6
+
+  # Public Subnet
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: {
+        "Fn::Select" : [
+          0,
+          {
+            "Fn::GetAZs" : ""
+          }
+        ]
+      }
+      VpcId: !Ref VPC
+      CidrBlock: !Sub "192.168.0.0/21"  # Define a different CIDR block for public subnet
+      MapPublicIpOnLaunch: true  # Set to true for public subnet
+      Tags:
+        - Key: Name
+          Value: PublicSubnet
+        - Key: map-migrated
+          Value: migK6H2OQ2BH6
+
+
+  PrivateSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: {
+        "Fn::Select" : [
+          0,
+          {
+            "Fn::GetAZs" : ""
+          }
+        ]
+      }
+      VpcId: !Ref VPC
+      CidrBlock: !Sub "192.168.8.0/21"
+      MapPublicIpOnLaunch: false  # Set to false for private subnet
+      Tags:
+        - Key: Name
+          Value: PrivateSubnet
+        - Key: map-migrated
+          Value: migK6H2OQ2BH6
+
+  # Route Tables
+  PublicSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet
+      RouteTableId: !Ref PublicRouteTable
+
+  PrivateRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet
+      RouteTableId: !Ref PrivateRouteTable
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+      - Key: map-migrated
+        Value: migK6H2OQ2BH6
+
+  VPCGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  # Public Route Table with internet gateway route
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0  # Route for all internet traffic
+      GatewayId: !Ref InternetGateway  # Target the internet gateway
+
+  # Private Route Table with NAT Gateway route
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+
+  # NAT Gateway in the Public Subnet
+  NatEIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc  # Specify domain as vpc for use within the VPC
+      Tags:
+      - Key: map-migrated
+        Value: migK6H2OQ2BH6
+
+  NatGateway:
+    Type: AWS::EC2::NatGateway
+    DependsOn: NatEIP
+    Properties:
+      SubnetId: !Ref PublicSubnet
+      AllocationId: !GetAtt NatEIP.AllocationId
+      Tags:
+      - Key: map-migrated
+        Value: migK6H2OQ2BH6
+
+  PrivateRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0  # Route for all internet traffic
+      NatGatewayId: !Ref NatGateway  # Target the NAT Gateway
+
+  # GpuInstance:
+  #   Type: AWS::EC2::Instance
+  #   Properties:
+  #     "Tags": [
+  #     { "Key": "Name", "Value": "gpu-${DeveloperName}-instance" }
+  #     ]
+  #     ImageId: !Ref AmiID
+  #     InstanceType: !Ref InstanceType
+  #     SubnetId: !Ref PrivateSubnet
+  #     IamInstanceProfile: !Ref EC2InstanceProfile
+  #     BlockDeviceMappings:  # New property
+  #       - DeviceName: "/dev/xvda"  # Replace with correct device name if needed (check AMI documentation)
+  #         Ebs:
+  #           VolumeSize: 100  # Set your desired volume size in GiB
+  #     # UserData:
+  #     #   Fn::Base64: |
+  #     #     [settings.host-containers.admin]
+  #     #     enabled = true
+
+  EC2InstanceProfile:
+    Type: "AWS::IAM::InstanceProfile"
+    Properties:
+      Path: "/"
+      Roles:
+        - Ref: "EC2Role"
+
+  EC2Role:
+    Type: "AWS::IAM::Role"
+    Properties:
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                !Sub "ec2.${AWS::URLSuffix}"
+            Action:
+              - "sts:AssumeRole"
+      ManagedPolicyArns:
+        - !Sub "arn:${AWS::Partition}:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+        - !Sub "arn:${AWS::Partition}:iam::aws:policy/AmazonEC2ReadOnlyAccess"
+        - !Sub "arn:${AWS::Partition}:iam::aws:policy/AmazonSSMFullAccess"
+
+Outputs:
+  SubnetID:
+    Value: !Ref PrivateSubnet
+    Description: Private Subnet ID
+  AmiID:
+    Value: !Ref AmiID
+    Description: AMI ID
+  EC2InstanceProfile:
+    Value: !Ref EC2InstanceProfile
+    Description: EC2 Instance Profile
