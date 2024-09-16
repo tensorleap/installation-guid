@@ -5,7 +5,7 @@ This should be run once - and when not in use, the stack should be deleted.
 ### Make sure you are using the dev account - account id: 898022457080
 
 ```bash
-CFN_STACK_NAME="dev-gpu-ec2-infra"
+CFN_STACK_NAME="tensorleap-ec2"
 aws cloudformation deploy --stack-name $CFN_STACK_NAME --template-file developers-ec2-infra.yaml --capabilities CAPABILITY_NAMED_IAM
 ```
 
