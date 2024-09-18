@@ -86,7 +86,7 @@ leap server install
 To connect to Tensorleap, use the following port forwarding command:
 
 ```bash
-ssm start-session --target <instance-id> --document-name AWS-StartPortForwardingSession --parameters '{"portNumber":["4589"],"localPortNumber":["4589"]}'
+aws ssm start-session --target <instance-id> --document-name AWS-StartPortForwardingSession --parameters '{"portNumber":["4589"],"localPortNumber":["4589"]}'
 ```
 
 ## Step 6: Terminate the EC2 Instance
