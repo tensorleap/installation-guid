@@ -43,7 +43,7 @@ aws ec2 run-instances \
     --instance-type $InstanceType \
     --subnet-id $SubnetID \
     --iam-instance-profile Name=$EC2InstanceProfile \
-    --block-device-mappings '[{"DeviceName":"/dev/xvda","Ebs":{"VolumeSize":100,"VolumeType":"gp3"}}]' \
+    --block-device-mappings '[{"DeviceName":"/dev/xvda","Ebs":{"VolumeSize":200,"VolumeType":"gp3"}}]' \
     --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=$InstanceName}]"
 ```
 
